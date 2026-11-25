@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { syncPendingToServer } from "@/lib/offline/sync-manager";
 import { getOrInitTodaySession, offlineDb } from "@/lib/offline/db";
-import { FullBackupPayload, restoreAllLocalData } from "@/lib/offline/backup";
+import { pullAllCloudDataChunked } from "@/lib/offline/backup";
 import {
   AudioPlaybackSpeed,
   getAudioPlaybackSpeed,
@@ -85,19 +85,8 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
       if (localNotesCount > 0) return;
 
       try {
-        const res = await fetch("/api/sync");
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          ok?: boolean;
-          backup?: FullBackupPayload;
-        };
-        if (
-          data.ok &&
-          data.backup?.tables &&
-          (data.backup.tables.notes?.length > 0 ||
-            data.backup.tables.sessions?.length > 0)
-        ) {
-          await restoreAllLocalData(data.backup);
+        const stats = await pullAllCloudDataChunked();
+        if (stats.notes > 0 || stats.sessions > 0) {
           window.location.reload();
         }
       } catch {

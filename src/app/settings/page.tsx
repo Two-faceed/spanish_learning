@@ -19,6 +19,8 @@ import {
   downloadBackupJsonFile,
   exportAllLocalData,
   FullBackupPayload,
+  pullAllCloudDataChunked,
+  pushAllLocalDataToCloudChunked,
   restoreAllLocalData,
 } from "@/lib/offline/backup";
 import { SettingsRecord } from "@/types/database";
@@ -161,25 +163,14 @@ export default function SettingsPage() {
 
   const handlePushCloud = async () => {
     setBackupBusy(true);
-    setBackupNotice(null);
+    setBackupNotice({ kind: "ok", text: "Starting cloud upload..." });
     try {
-      const payload = await exportAllLocalData();
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullBackup: payload }),
-      });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        syncedCount?: number;
-        error?: string;
-      };
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Cloud push failed.");
-      }
+      const { syncedCount } = await pushAllLocalDataToCloudChunked((label) =>
+        setBackupNotice({ kind: "ok", text: label })
+      );
       setBackupNotice({
         kind: "ok",
-        text: `Pushed ${(data.syncedCount ?? 0).toLocaleString()} records to Supabase cloud!`,
+        text: `Pushed ${syncedCount.toLocaleString()} records to Supabase cloud!`,
       });
     } catch (err) {
       setBackupNotice({
@@ -193,18 +184,11 @@ export default function SettingsPage() {
 
   const handlePullCloud = async () => {
     setBackupBusy(true);
-    setBackupNotice(null);
+    setBackupNotice({ kind: "ok", text: "Connecting to Supabase cloud..." });
     try {
-      const res = await fetch("/api/sync");
-      const data = (await res.json()) as {
-        ok?: boolean;
-        backup?: FullBackupPayload;
-        error?: string;
-      };
-      if (!res.ok || !data.ok || !data.backup) {
-        throw new Error(data.error || "Cloud pull failed.");
-      }
-      const stats = await restoreAllLocalData(data.backup);
+      const stats = await pullAllCloudDataChunked((label) =>
+        setBackupNotice({ kind: "ok", text: label })
+      );
       setBackupNotice({
         kind: "ok",
         text: `Pulled ${stats.notes.toLocaleString()} words, ${stats.cards.toLocaleString()} cards & ${stats.sessions} days from cloud!`,

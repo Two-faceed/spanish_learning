@@ -198,3 +198,149 @@ export function downloadBackupJsonFile(payload: FullBackupPayload) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+const CLOUD_TABLE_ORDER: (keyof FullBackupPayload["tables"])[] = [
+  "notes",
+  "cards",
+  "review_logs",
+  "sessions",
+  "settings",
+  "lessons",
+  "errors",
+  "pron_attempts",
+  "texts",
+  "word_status",
+  "journey",
+  "rewards",
+  "quests",
+];
+
+/**
+ * Pushes all local tables to `/api/sync` in small 800-row chunks (~250 KB each)
+ * so it NEVER hits Vercel's 4.5 MB request body limit.
+ */
+export async function pushAllLocalDataToCloudChunked(
+  onProgress?: (label: string) => void
+): Promise<{ syncedCount: number; warnings: string[] }> {
+  const payload = await exportAllLocalData();
+  let syncedCount = 0;
+  const warnings: string[] = [];
+  const CHUNK_SIZE = 800;
+
+  for (const tableKey of CLOUD_TABLE_ORDER) {
+    const rows = payload.tables[tableKey];
+    if (!Array.isArray(rows) || rows.length === 0) continue;
+
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+      const slice = rows.slice(i, i + CHUNK_SIZE);
+      onProgress?.(
+        `Uploading ${tableKey} (${Math.min(rows.length, i + slice.length).toLocaleString()}/${rows.length.toLocaleString()})...`
+      );
+
+      const partialPayload = {
+        version: 1 as const,
+        exportedAt: payload.exportedAt,
+        tables: {
+          [tableKey]: slice,
+        },
+      };
+
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullBackup: partialPayload }),
+      });
+
+      const rawText = await res.text();
+      let data: {
+        ok?: boolean;
+        syncedCount?: number;
+        warnings?: string[];
+        error?: string;
+      };
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(
+          `Server error on ${tableKey} (HTTP ${res.status}): ${rawText.slice(0, 120)}`
+        );
+      }
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || `Cloud push failed on ${tableKey}.`);
+      }
+
+      syncedCount += data.syncedCount ?? slice.length;
+      if (Array.isArray(data.warnings)) {
+        warnings.push(...data.warnings);
+      }
+    }
+  }
+
+  return { syncedCount, warnings };
+}
+
+/**
+ * Pulls all tables from `/api/sync` in 1,000-row paginated slices so it NEVER
+ * hits Vercel's 4.5 MB response limit, then restores into IndexedDB.
+ */
+export async function pullAllCloudDataChunked(
+  onProgress?: (label: string) => void
+): Promise<{
+  notes: number;
+  cards: number;
+  sessions: number;
+  lessons: number;
+  texts: number;
+}> {
+  const tables: Record<string, unknown[]> = {};
+  const PAGE_SIZE = 1000;
+
+  for (const tableKey of CLOUD_TABLE_ORDER) {
+    const collected: unknown[] = [];
+    let offset = 0;
+
+    while (true) {
+      onProgress?.(
+        `Downloading ${tableKey}${offset > 0 ? ` (${offset.toLocaleString()}+)` : ""}...`
+      );
+      const res = await fetch(
+        `/api/sync?table=${encodeURIComponent(tableKey)}&offset=${offset}&limit=${PAGE_SIZE}`
+      );
+      const rawText = await res.text();
+      let data: {
+        ok?: boolean;
+        rows?: unknown[];
+        hasMore?: boolean;
+        error?: string;
+      };
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(
+          `Server error pulling ${tableKey} (HTTP ${res.status}): ${rawText.slice(0, 120)}`
+        );
+      }
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || `Cloud pull failed on ${tableKey}.`);
+      }
+
+      const rows = Array.isArray(data.rows) ? data.rows : [];
+      collected.push(...rows);
+      if (!data.hasMore || rows.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+
+    tables[tableKey] = collected;
+  }
+
+  const backup: FullBackupPayload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tables: tables as unknown as FullBackupPayload["tables"],
+  };
+
+  onProgress?.("Saving to device storage...");
+  return restoreAllLocalData(backup);
+}

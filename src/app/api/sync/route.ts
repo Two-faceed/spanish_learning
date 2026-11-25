@@ -57,10 +57,10 @@ async function fetchAllRows(
 
 /**
  * GET /api/sync
- * Pulls full user progress & deck state from Supabase so a new device (e.g. phone on Vercel)
- * can restore all learned words, cards, streak, lessons, and reading texts in 1 click.
+ * Supports paginated per-table pulls (`?table=cards&offset=0&limit=1000`) to stay well
+ * under Vercel's 4.5 MB Serverless response limit, plus legacy full pull when no `table` is passed.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const supabase = getSupabaseServerAdminClient();
     if (!supabase) {
@@ -73,6 +73,45 @@ export async function GET() {
         },
         { status: 400 }
       );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const tableParam = searchParams.get("table");
+
+    if (tableParam) {
+      const allowed = SYNC_TABLE_CONFLICTS.find((t) => t.key === tableParam);
+      if (!allowed) {
+        return NextResponse.json(
+          { ok: false, error: `Unknown sync table: ${tableParam}` },
+          { status: 400 }
+        );
+      }
+      const offset = Math.max(0, Number(searchParams.get("offset") ?? "0") || 0);
+      const limit = Math.min(
+        1000,
+        Math.max(1, Number(searchParams.get("limit") ?? "1000") || 1000)
+      );
+      const { data, error } = await supabase
+        .from(allowed.key)
+        .select("*")
+        .range(offset, offset + limit - 1);
+      if (error) {
+        return NextResponse.json({
+          ok: true,
+          mode: "supabase",
+          table: allowed.key,
+          rows: [],
+          hasMore: false,
+        });
+      }
+      const rows = data ?? [];
+      return NextResponse.json({
+        ok: true,
+        mode: "supabase",
+        table: allowed.key,
+        rows,
+        hasMore: rows.length === limit,
+      });
     }
 
     const tables: Record<string, unknown[]> = {};
