@@ -280,11 +280,19 @@ export function MadridChatWidget() {
           }),
         });
 
-        const data = (await res.json()) as {
+        const rawText = await res.text();
+        let data: {
           reply?: string;
           corrections?: AiCorrectionOutput[];
           error?: string;
         };
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          data = {
+            error: `Server returned HTTP ${res.status}. Tap Retry in a moment.`,
+          };
+        }
 
         if (!res.ok || data.error || !data.reply) {
           setChatError(
@@ -294,6 +302,9 @@ export function MadridChatWidget() {
           setChatMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
           return;
         }
+
+        setLastFailedText(null);
+        setChatError(null);
 
         const corrections = data.corrections ?? [];
         const tutorMsg: TutorChatMessage = {
@@ -323,6 +334,11 @@ export function MadridChatWidget() {
         }
       } catch (err) {
         console.error("Chat widget error:", err);
+        setChatError(
+          err instanceof Error ? err.message : "Network error. Tap Retry."
+        );
+        setLastFailedText(textToSend);
+        setChatMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
       } finally {
         setChatSending(false);
       }

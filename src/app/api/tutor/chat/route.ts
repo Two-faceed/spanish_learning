@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       body.spanishOnlyMode
         ? "Reply in simple Spain Spanish (es-ES)."
         : "Reply in natural Spain Spanish (es-ES) with brief English translations.",
-      "RULES: 1) Directly answer the learner's last message. 2) No markdown asterisks (** or *). 3) Keep reply under 65 words and end with a short Spanish follow-up question.",
+      "RULES: 1) Directly answer the learner's last message. 2) No markdown asterisks (** or *). 3) Use single quotes ('el', 'la', 'lo') instead of double quotes inside your reply text. 4) Keep reply concise (under 110 words) and end with a short Spanish follow-up question.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -71,7 +71,7 @@ Return JSON: {"reply":"...","corrections":[]}`;
         systemPrompt,
         userPrompt,
         temperature: 0.4,
-        maxOutputTokens: 250,
+        maxOutputTokens: 900,
       });
       const parsed = parseAiChatPayloadJson(rawAiText);
       return NextResponse.json(parsed);

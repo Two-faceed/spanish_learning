@@ -382,8 +382,33 @@ export function parseAiGradePayloadJson(rawText: string): AiGradePayloadOutput {
  * Parses and validates an AI free-chat response with inline corrections.
  */
 export function parseAiChatPayloadJson(rawText: string): AiChatPayloadOutput {
-  const parsed = extractJsonFromAiText<Record<string, unknown>>(rawText);
-  if (typeof parsed !== "object" || parsed === null) {
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    const candidate = extractJsonFromAiText<Record<string, unknown>>(rawText);
+    if (typeof candidate === "object" && candidate !== null) {
+      parsed = candidate;
+    }
+  } catch {
+    // Graceful recovery if Gemini put unescaped quotes inside "reply" or truncated JSON
+    const cleaned = rawText
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+    const replyMatch = cleaned.match(
+      /"(?:reply|response|message|text)"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"corrections"|"\s*\}|$)/i
+    );
+    const recovered = (replyMatch ? replyMatch[1] : cleaned)
+      .replace(/\\n/g, "\n")
+      .replace(/\\"/g, '"')
+      .replace(/\*\*/g, "")
+      .trim();
+    if (recovered && !/^[\{\[]/.test(recovered)) {
+      return { reply: recovered, corrections: [] };
+    }
+    throw new Error("Could not read AI reply — tap Retry.");
+  }
+
+  if (!parsed) {
     throw new Error("Invalid AI chat JSON: expected {reply, corrections}");
   }
 
