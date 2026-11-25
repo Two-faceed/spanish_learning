@@ -20,6 +20,7 @@ import {
   getOrInitTodaySession,
   offlineDb,
 } from "./db";
+import { scheduleBackgroundProgressPush } from "./backup";
 import { ParsedAnkiNote, upsertNotesIdempotently } from "@/lib/anki/parser";
 
 /**
@@ -366,6 +367,7 @@ export async function markLessonCompletedOfflineFirst(
         minutes: todaySession.minutes + 15,
       });
     }
+    scheduleBackgroundProgressPush();
   }
 
   return updated;
@@ -428,6 +430,7 @@ export async function scheduleSpeakCardForLowPronunciation(
     created_at: nowIso,
   };
   await offlineDb.errors.put(errorEntry);
+  scheduleBackgroundProgressPush();
 
   return speakCard;
 }
@@ -449,6 +452,7 @@ export async function setWordKnowledgeStatusOffline(input: {
     first_seen_text_id: input.textId ?? null,
     updated_at: new Date().toISOString(),
   });
+  scheduleBackgroundProgressPush();
 }
 
 /**

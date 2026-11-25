@@ -26,6 +26,7 @@ import {
   mineWordFromReadingOfflineFirst,
   setWordKnowledgeStatusOffline,
 } from "@/lib/offline/sync-manager";
+import { scheduleBackgroundProgressPush } from "@/lib/offline/backup";
 import { playSpanishAudio } from "@/lib/audio/player";
 import { toMadridEnglishPhonetics } from "@/lib/audio/phonetics";
 import {
@@ -297,6 +298,7 @@ export default function ReadPage() {
 
       if (offlineDb) {
         await offlineDb.texts.put(updated);
+        scheduleBackgroundProgressPush();
       }
       setTexts((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
       if (typeof window !== "undefined") {
@@ -337,6 +339,7 @@ export default function ReadPage() {
 
     if (offlineDb) {
       await offlineDb.texts.put(record);
+      scheduleBackgroundProgressPush();
     }
     setTexts((prev) => [record, ...prev]);
     setHubTab("library");

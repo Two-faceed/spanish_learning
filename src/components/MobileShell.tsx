@@ -19,6 +19,7 @@ import { syncPendingToServer } from "@/lib/offline/sync-manager";
 import { getOrInitTodaySession, offlineDb } from "@/lib/offline/db";
 import {
   pullAllCloudDataChunked,
+  pushProgressToCloudFast,
   syncProgressFromCloudFast,
 } from "@/lib/offline/backup";
 import {
@@ -115,6 +116,8 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         void autoSyncCloud();
+      } else if (document.visibilityState === "hidden") {
+        void pushProgressToCloudFast();
       }
     };
     document.addEventListener("visibilitychange", handleVisibility);

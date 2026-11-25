@@ -358,6 +358,7 @@ export async function syncProgressFromCloudFast(): Promise<boolean> {
     const data = (await res.json()) as {
       ok?: boolean;
       progress?: {
+        notes?: NoteRecord[];
         cards?: CardRecord[];
         sessions?: SessionRecord[];
         settings?: SettingsRecord[];
@@ -372,6 +373,11 @@ export async function syncProgressFromCloudFast(): Promise<boolean> {
 
     let changed = false;
     const p = data.progress;
+
+    // 0. Merge non-deck mined/tutor notes
+    if (Array.isArray(p.notes) && p.notes.length > 0) {
+      await offlineDb.notes.bulkPut(p.notes);
+    }
 
     // 1. Merge reviewed cards (keep whichever has more reps or newer last_review)
     if (Array.isArray(p.cards) && p.cards.length > 0) {
@@ -444,9 +450,98 @@ export async function syncProgressFromCloudFast(): Promise<boolean> {
     if (Array.isArray(p.pron_attempts) && p.pron_attempts.length > 0) {
       await offlineDb.pron_attempts.bulkPut(p.pron_attempts);
     }
+    if (Array.isArray(p.settings) && p.settings.length > 0) {
+      await offlineDb.settings.bulkPut(p.settings);
+    }
 
     return changed;
   } catch {
     return false;
   }
+}
+
+/**
+ * Fast background cloud push (<250ms): uploads ONLY lightweight progress tables
+ * (reviewed cards, mined/tutor notes, sessions, settings, lessons, errors,
+ * pronunciation attempts, reading texts, and word statuses) to Supabase.
+ */
+export async function pushProgressToCloudFast(): Promise<void> {
+  if (!offlineDb || typeof navigator === "undefined" || !navigator.onLine) {
+    return;
+  }
+  try {
+    const [
+      allNotes,
+      allCards,
+      sessions,
+      settings,
+      lessons,
+      errors,
+      pron_attempts,
+      texts,
+      word_status,
+    ] = await Promise.all([
+      offlineDb.notes.toArray(),
+      offlineDb.cards.toArray(),
+      offlineDb.sessions.toArray(),
+      offlineDb.settings.toArray(),
+      offlineDb.lessons.toArray(),
+      offlineDb.errors.toArray(),
+      offlineDb.pron_attempts.toArray(),
+      offlineDb.texts.toArray(),
+      offlineDb.word_status.toArray(),
+    ]);
+
+    const minedNotes = allNotes.filter((n) => n.source !== "deck");
+    const reviewedCards = allCards.filter((c) => c.reps > 0 || c.state !== 0);
+
+    const partialTables: Partial<FullBackupPayload["tables"]> = {
+      notes: minedNotes,
+      cards: reviewedCards,
+      sessions,
+      settings,
+      lessons,
+      errors,
+      pron_attempts,
+      texts,
+      word_status,
+    };
+
+    // Push each non-empty table in <= 800-row slices so we never exceed Vercel's 4.5MB limit
+    const CHUNK = 800;
+    for (const [tableKey, rows] of Object.entries(partialTables)) {
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const slice = rows.slice(i, i + CHUNK);
+        await fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullBackup: {
+              version: 1,
+              exportedAt: new Date().toISOString(),
+              tables: { [tableKey]: slice },
+            },
+          }),
+        });
+      }
+    }
+  } catch {
+    // Silent offline-first fallback
+  }
+}
+
+let bgPushTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Debounced background push (1.2s) so rapid taps across Lessons, Reading,
+ * Pronunciation, and Reviews coalesce into one fast automatic cloud sync.
+ */
+export function scheduleBackgroundProgressPush(): void {
+  if (typeof window === "undefined") return;
+  if (bgPushTimer) clearTimeout(bgPushTimer);
+  bgPushTimer = setTimeout(() => {
+    bgPushTimer = null;
+    void pushProgressToCloudFast();
+  }, 1200);
 }

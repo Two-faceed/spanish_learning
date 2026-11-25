@@ -111,6 +111,7 @@ export async function GET(req: NextRequest) {
 
     if (modeParam === "progress") {
       const [
+        minedNotesRes,
         reviewedCardsRes,
         sessionsRes,
         settingsRes,
@@ -120,6 +121,7 @@ export async function GET(req: NextRequest) {
         textsRes,
         wordStatusRes,
       ] = await Promise.all([
+        supabase.from("notes").select("*").neq("source", "deck").limit(2000),
         supabase.from("cards").select("*").gt("reps", 0).limit(5000),
         supabase.from("sessions").select("*").limit(500),
         supabase.from("settings").select("*").limit(5),
@@ -134,6 +136,7 @@ export async function GET(req: NextRequest) {
         ok: true,
         mode: "supabase",
         progress: {
+          notes: minedNotesRes.data ?? [],
           cards: reviewedCardsRes.data ?? [],
           sessions: sessionsRes.data ?? [],
           settings: settingsRes.data ?? [],

@@ -23,6 +23,7 @@ import {
 } from "@/types/database";
 import { SPAIN_SOUND_META_MAP } from "@/lib/pronunciation/spain-sounds";
 import { offlineDb } from "@/lib/offline/db";
+import { scheduleBackgroundProgressPush } from "@/lib/offline/backup";
 
 interface PronunciationRecorderCardProps {
   referenceText: string;
@@ -162,6 +163,7 @@ export function PronunciationRecorderCard({
           created_at: new Date().toISOString(),
         };
         await offlineDb.pron_attempts.put(attempt);
+        scheduleBackgroundProgressPush();
       }
 
       onScored?.(data);
