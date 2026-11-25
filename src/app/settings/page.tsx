@@ -5,11 +5,22 @@ import {
   CheckCircle2,
   ChevronsRight,
   Clock,
+  CloudDownload,
+  CloudUpload,
   DollarSign,
+  Download,
+  Loader2,
   Palette,
+  Upload,
   Volume2,
 } from "lucide-react";
 import { getOrInitSettings, offlineDb } from "@/lib/offline/db";
+import {
+  downloadBackupJsonFile,
+  exportAllLocalData,
+  FullBackupPayload,
+  restoreAllLocalData,
+} from "@/lib/offline/backup";
 import { SettingsRecord } from "@/types/database";
 import {
   getTtsEngine,
@@ -41,6 +52,11 @@ export default function SettingsPage() {
   const [ttsEngine, setTtsEngineState] = useState<TtsEngineId>(
     "gemini-3.8-flash-tts"
   );
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupNotice, setBackupNotice] = useState<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     void getOrInitSettings().then((s) => {
@@ -97,6 +113,112 @@ export default function SettingsPage() {
     setTimeout(() => setSavedNotice(false), 2500);
   };
 
+  const handleExportBackup = async () => {
+    setBackupBusy(true);
+    setBackupNotice(null);
+    try {
+      const payload = await exportAllLocalData();
+      downloadBackupJsonFile(payload);
+      setBackupNotice({
+        kind: "ok",
+        text: `Exported ${payload.tables.notes.length.toLocaleString()} words, ${payload.tables.cards.length.toLocaleString()} cards & ${payload.tables.sessions.length} days.`,
+      });
+    } catch (err) {
+      setBackupNotice({
+        kind: "err",
+        text: err instanceof Error ? err.message : "Export failed.",
+      });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleRestoreBackupFile = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBackupBusy(true);
+    setBackupNotice(null);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as FullBackupPayload;
+      const stats = await restoreAllLocalData(parsed);
+      setBackupNotice({
+        kind: "ok",
+        text: `Restored ${stats.notes.toLocaleString()} words, ${stats.cards.toLocaleString()} cards, ${stats.sessions} days & ${stats.lessons} lessons!`,
+      });
+    } catch (err) {
+      setBackupNotice({
+        kind: "err",
+        text: err instanceof Error ? err.message : "Could not restore backup.",
+      });
+    } finally {
+      setBackupBusy(false);
+      e.target.value = "";
+    }
+  };
+
+  const handlePushCloud = async () => {
+    setBackupBusy(true);
+    setBackupNotice(null);
+    try {
+      const payload = await exportAllLocalData();
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullBackup: payload }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        syncedCount?: number;
+        error?: string;
+      };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Cloud push failed.");
+      }
+      setBackupNotice({
+        kind: "ok",
+        text: `Pushed ${(data.syncedCount ?? 0).toLocaleString()} records to Supabase cloud!`,
+      });
+    } catch (err) {
+      setBackupNotice({
+        kind: "err",
+        text: err instanceof Error ? err.message : "Cloud push failed.",
+      });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handlePullCloud = async () => {
+    setBackupBusy(true);
+    setBackupNotice(null);
+    try {
+      const res = await fetch("/api/sync");
+      const data = (await res.json()) as {
+        ok?: boolean;
+        backup?: FullBackupPayload;
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.backup) {
+        throw new Error(data.error || "Cloud pull failed.");
+      }
+      const stats = await restoreAllLocalData(data.backup);
+      setBackupNotice({
+        kind: "ok",
+        text: `Pulled ${stats.notes.toLocaleString()} words, ${stats.cards.toLocaleString()} cards & ${stats.sessions} days from cloud!`,
+      });
+    } catch (err) {
+      setBackupNotice({
+        kind: "err",
+        text: err instanceof Error ? err.message : "Cloud pull failed.",
+      });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
   if (!settings) {
     return (
       <div className="p-6 text-center text-xs text-zinc-400">
@@ -118,6 +240,80 @@ export default function SettingsPage() {
           Visual theme style, daily time budget, new-word ramp, and Madrid (<code className="font-mono">es-ES</code>) neural voice.
         </p>
       </div>
+
+      {/* Sync & Backup (Transfer Progress Between Mac & Phone) */}
+      <section className="rounded-[28px] bg-[#181A1F] border border-[#FF4F17]/30 p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+            <CloudUpload className="w-4 h-4 text-[#FF4F17]" />
+            <span>Sync &amp; Backup (Mac ↔ Phone)</span>
+          </div>
+          {backupBusy && (
+            <Loader2 className="w-4 h-4 text-[#FF4F17] animate-spin" />
+          )}
+        </div>
+        <p className="text-[11px] text-zinc-400 leading-relaxed">
+          Move your learned words, FSRS schedule, streak, lessons, and reading
+          library between <code className="font-mono">localhost</code> and your
+          phone via a 1-click JSON file or Supabase cloud sync.
+        </p>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={backupBusy}
+            onClick={() => void handleExportBackup()}
+            className="h-10 px-3 rounded-2xl bg-[#FF4F17] hover:bg-[#FF6230] text-black font-extrabold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export .json</span>
+          </button>
+
+          <label className="h-10 px-3 rounded-2xl bg-[#22252C] hover:bg-[#2B2F38] border border-white/10 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition">
+            <Upload className="w-3.5 h-3.5 text-[#FF4F17]" />
+            <span>Restore .json</span>
+            <input
+              type="file"
+              accept=".json,application/json"
+              disabled={backupBusy}
+              onChange={(e) => void handleRestoreBackupFile(e)}
+              className="hidden"
+            />
+          </label>
+
+          <button
+            type="button"
+            disabled={backupBusy}
+            onClick={() => void handlePushCloud()}
+            className="h-10 px-3 rounded-2xl bg-[#121419] hover:bg-white/[0.06] border border-white/[0.08] text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition"
+          >
+            <CloudUpload className="w-3.5 h-3.5 text-[#FF4F17]" />
+            <span>Push to Cloud</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={backupBusy}
+            onClick={() => void handlePullCloud()}
+            className="h-10 px-3 rounded-2xl bg-[#121419] hover:bg-white/[0.06] border border-white/[0.08] text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-50 transition"
+          >
+            <CloudDownload className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Pull from Cloud</span>
+          </button>
+        </div>
+
+        {backupNotice && (
+          <div
+            className={`rounded-2xl px-3 py-2 text-xs font-bold border ${
+              backupNotice.kind === "ok"
+                ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-300"
+                : "bg-rose-500/15 border-rose-500/35 text-rose-300"
+            }`}
+          >
+            {backupNotice.text}
+          </div>
+        )}
+      </section>
 
       {/* App Theme Style Selector (Carbon Blaze vs Future Violet) */}
       <section className="rounded-[28px] bg-[#181A1F] border border-white/[0.06] p-5 space-y-3">
