@@ -29,9 +29,38 @@ const SYNC_TABLE_CONFLICTS: {
   { key: "quests", conflict: "id" },
 ];
 
+function sanitizeCardRow(raw: Record<string, unknown>): Record<string, unknown> {
+  return {
+    id: raw.id,
+    note_id: raw.note_id,
+    type: raw.type,
+    due: raw.due,
+    stability: Number(raw.stability ?? 0),
+    difficulty: Number(raw.difficulty ?? 0),
+    elapsed_days: Math.round(Number(raw.elapsed_days ?? 0)),
+    scheduled_days: Math.round(Number(raw.scheduled_days ?? 0)),
+    reps: Math.round(Number(raw.reps ?? 0)),
+    lapses: Math.round(Number(raw.lapses ?? 0)),
+    state: Math.round(Number(raw.state ?? 0)),
+    last_review: raw.last_review ?? null,
+    suspended: Boolean(raw.suspended ?? false),
+  };
+}
+
+function sanitizeRowsForTable(
+  tableKey: keyof FullBackupPayload["tables"],
+  rows: unknown[]
+): Record<string, unknown>[] {
+  if (tableKey === "cards") {
+    return rows.map((r) => sanitizeCardRow(r as Record<string, unknown>));
+  }
+  return rows as Record<string, unknown>[];
+}
+
 async function fetchAllRows(
   supabase: NonNullable<ReturnType<typeof getSupabaseServerAdminClient>>,
-  table: string
+  table: string,
+  orderCol: string = "id"
 ): Promise<unknown[]> {
   const rows: unknown[] = [];
   const PAGE = 1000;
@@ -41,6 +70,7 @@ async function fetchAllRows(
     const { data, error } = await supabase
       .from(table)
       .select("*")
+      .order(orderCol, { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) {
       // Table might not exist yet if a later migration wasn't run
@@ -57,8 +87,9 @@ async function fetchAllRows(
 
 /**
  * GET /api/sync
- * Supports paginated per-table pulls (`?table=cards&offset=0&limit=1000`) to stay well
- * under Vercel's 4.5 MB Serverless response limit, plus legacy full pull when no `table` is passed.
+ * - `?mode=progress`: fast lightweight pull of ONLY reviewed cards (`reps > 0`) +
+ *   sessions, lessons, errors, texts, word_status, pron_attempts, settings (<250ms).
+ * - `?table=cards&offset=0&limit=1000`: paginated per-table pull under Vercel's 4.5MB limit.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -76,6 +107,45 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
+    const modeParam = searchParams.get("mode");
+
+    if (modeParam === "progress") {
+      const [
+        reviewedCardsRes,
+        sessionsRes,
+        settingsRes,
+        lessonsRes,
+        errorsRes,
+        pronRes,
+        textsRes,
+        wordStatusRes,
+      ] = await Promise.all([
+        supabase.from("cards").select("*").gt("reps", 0).limit(5000),
+        supabase.from("sessions").select("*").limit(500),
+        supabase.from("settings").select("*").limit(5),
+        supabase.from("lessons").select("*").limit(200),
+        supabase.from("errors").select("*").limit(500),
+        supabase.from("pron_attempts").select("*").limit(500),
+        supabase.from("texts").select("*").limit(200),
+        supabase.from("word_status").select("*").limit(5000),
+      ]);
+
+      return NextResponse.json({
+        ok: true,
+        mode: "supabase",
+        progress: {
+          cards: reviewedCardsRes.data ?? [],
+          sessions: sessionsRes.data ?? [],
+          settings: settingsRes.data ?? [],
+          lessons: lessonsRes.data ?? [],
+          errors: errorsRes.data ?? [],
+          pron_attempts: pronRes.data ?? [],
+          texts: textsRes.data ?? [],
+          word_status: wordStatusRes.data ?? [],
+        },
+      });
+    }
+
     const tableParam = searchParams.get("table");
 
     if (tableParam) {
@@ -94,6 +164,7 @@ export async function GET(req: NextRequest) {
       const { data, error } = await supabase
         .from(allowed.key)
         .select("*")
+        .order(allowed.conflict, { ascending: true })
         .range(offset, offset + limit - 1);
       if (error) {
         return NextResponse.json({
@@ -115,8 +186,8 @@ export async function GET(req: NextRequest) {
     }
 
     const tables: Record<string, unknown[]> = {};
-    for (const { key } of SYNC_TABLE_CONFLICTS) {
-      tables[key] = await fetchAllRows(supabase, key);
+    for (const { key, conflict } of SYNC_TABLE_CONFLICTS) {
+      tables[key] = await fetchAllRows(supabase, key, conflict);
     }
 
     const backup: FullBackupPayload = {
@@ -183,10 +254,10 @@ export async function POST(req: NextRequest) {
 
         const CHUNK = 500;
         for (let i = 0; i < rows.length; i += CHUNK) {
-          const slice = rows.slice(i, i + CHUNK);
+          const slice = sanitizeRowsForTable(key, rows.slice(i, i + CHUNK));
           const { error } = await supabase
             .from(key)
-            .upsert(slice as unknown as Record<string, unknown>[], {
+            .upsert(slice, {
               onConflict: conflict,
             });
           if (error) {
@@ -207,7 +278,9 @@ export async function POST(req: NextRequest) {
 
     const pending = body.pendingReviews ?? [];
     if (pending.length > 0) {
-      const updatedCards = pending.map((p) => p.updatedCard);
+      const updatedCards = pending.map((p) =>
+        sanitizeCardRow(p.updatedCard as unknown as Record<string, unknown>)
+      );
       const reviewLogs = pending.map((p) => p.reviewLog);
 
       await supabase.from("cards").upsert(updatedCards, { onConflict: "id" });

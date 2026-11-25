@@ -165,13 +165,20 @@ export default function SettingsPage() {
     setBackupBusy(true);
     setBackupNotice({ kind: "ok", text: "Starting cloud upload..." });
     try {
-      const { syncedCount } = await pushAllLocalDataToCloudChunked((label) =>
+      const { syncedCount, warnings } = await pushAllLocalDataToCloudChunked((label) =>
         setBackupNotice({ kind: "ok", text: label })
       );
-      setBackupNotice({
-        kind: "ok",
-        text: `Pushed ${syncedCount.toLocaleString()} records to Supabase cloud!`,
-      });
+      if (warnings.length > 0) {
+        setBackupNotice({
+          kind: "err",
+          text: `Synced ${syncedCount.toLocaleString()} records with warning: ${warnings[0]}`,
+        });
+      } else {
+        setBackupNotice({
+          kind: "ok",
+          text: `Pushed ${syncedCount.toLocaleString()} records to Supabase cloud!`,
+        });
+      }
     } catch (err) {
       setBackupNotice({
         kind: "err",

@@ -17,7 +17,10 @@ import {
 } from "lucide-react";
 import { syncPendingToServer } from "@/lib/offline/sync-manager";
 import { getOrInitTodaySession, offlineDb } from "@/lib/offline/db";
-import { pullAllCloudDataChunked } from "@/lib/offline/backup";
+import {
+  pullAllCloudDataChunked,
+  syncProgressFromCloudFast,
+} from "@/lib/offline/backup";
 import {
   AudioPlaybackSpeed,
   getAudioPlaybackSpeed,
@@ -74,26 +77,39 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
 
     void refreshStatus();
 
-    // Auto-pull from Supabase once on a fresh device (0 local notes) if cloud sync is configured
-    const autoPullOnFreshDevice = async () => {
-      if (!offlineDb || typeof window === "undefined") return;
-      if (window.sessionStorage.getItem("spanishx_autopull_checked") === "1") {
+    // Automatic cloud sync:
+    // 1. Fresh device (0 notes): full chunked pull from Supabase.
+    // 2. Existing device: fast <250ms progress pull (reviewed cards, XP, lessons, texts) every 45s.
+    const autoSyncCloud = async () => {
+      if (!offlineDb || typeof window === "undefined" || !navigator.onLine) return;
+      const localNotesCount = await offlineDb.notes.count();
+      if (localNotesCount === 0) {
+        if (window.sessionStorage.getItem("spanishx_autopull_checked") === "1") {
+          return;
+        }
+        window.sessionStorage.setItem("spanishx_autopull_checked", "1");
+        try {
+          const stats = await pullAllCloudDataChunked();
+          if (stats.notes > 0 || stats.sessions > 0) {
+            window.location.reload();
+          }
+        } catch {
+          // Offline or Supabase not configured yet
+        }
         return;
       }
-      window.sessionStorage.setItem("spanishx_autopull_checked", "1");
-      const localNotesCount = await offlineDb.notes.count();
-      if (localNotesCount > 0) return;
 
-      try {
-        const stats = await pullAllCloudDataChunked();
-        if (stats.notes > 0 || stats.sessions > 0) {
-          window.location.reload();
-        }
-      } catch {
-        // Offline or Supabase not configured yet — stay local silently
+      const lastFastPull = Number(
+        window.sessionStorage.getItem("spanishx_fast_pull_ts") ?? "0"
+      );
+      if (Date.now() - lastFastPull < 45_000) return;
+      window.sessionStorage.setItem("spanishx_fast_pull_ts", String(Date.now()));
+      const updated = await syncProgressFromCloudFast();
+      if (updated) {
+        void refreshStatus();
       }
     };
-    void autoPullOnFreshDevice();
+    void autoSyncCloud();
 
     const handleOnline = () => {
       setIsOnline(true);

@@ -162,16 +162,19 @@ export function gradeCard(
       : nextCard.lapses;
 
   const updatedCard: CardRecord = {
-    ...card,
+    id: card.id,
+    note_id: card.note_id,
+    type: card.type,
     due: calibrated.due.toISOString(),
     stability: nextCard.stability,
     difficulty: nextCard.difficulty,
-    elapsed_days: nextCard.elapsed_days,
-    scheduled_days: calibrated.scheduledDays,
+    elapsed_days: Math.round(nextCard.elapsed_days),
+    scheduled_days: Math.round(calibrated.scheduledDays),
     reps: nextCard.reps,
     lapses: nextLapses,
     state: nextCard.state as FSRSState,
     last_review: now.toISOString(),
+    suspended: card.suspended,
   };
 
   const reviewLog: ReviewLogRecord = {

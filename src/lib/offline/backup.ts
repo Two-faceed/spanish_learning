@@ -344,3 +344,109 @@ export async function pullAllCloudDataChunked(
   onProgress?.("Saving to device storage...");
   return restoreAllLocalData(backup);
 }
+
+/**
+ * Fast automatic background sync (<250ms): pulls ONLY reviewed cards (`reps > 0`),
+ * sessions, lessons, errors, reading texts, word_status, and pronunciation attempts
+ * from Supabase and merges them non-destructively (keeping higher reps / newer updates).
+ */
+export async function syncProgressFromCloudFast(): Promise<boolean> {
+  if (!offlineDb) return false;
+  try {
+    const res = await fetch("/api/sync?mode=progress");
+    if (!res.ok) return false;
+    const data = (await res.json()) as {
+      ok?: boolean;
+      progress?: {
+        cards?: CardRecord[];
+        sessions?: SessionRecord[];
+        settings?: SettingsRecord[];
+        lessons?: LessonRecord[];
+        errors?: ErrorRecord[];
+        pron_attempts?: PronunciationAttemptRecord[];
+        texts?: ReadingTextRecord[];
+        word_status?: WordStatusRecord[];
+      };
+    };
+    if (!data.ok || !data.progress) return false;
+
+    let changed = false;
+    const p = data.progress;
+
+    // 1. Merge reviewed cards (keep whichever has more reps or newer last_review)
+    if (Array.isArray(p.cards) && p.cards.length > 0) {
+      const localCards = await offlineDb.cards.bulkGet(p.cards.map((c) => c.id));
+      const toPut: CardRecord[] = [];
+      p.cards.forEach((remote, idx) => {
+        const local = localCards[idx];
+        const remoteTime = remote.last_review
+          ? new Date(remote.last_review).getTime()
+          : 0;
+        const localTime = local?.last_review
+          ? new Date(local.last_review).getTime()
+          : 0;
+        if (
+          !local ||
+          remote.reps > local.reps ||
+          (remote.reps === local.reps && remoteTime > localTime)
+        ) {
+          toPut.push(remote);
+        }
+      });
+      if (toPut.length > 0) {
+        await offlineDb.cards.bulkPut(toPut);
+        changed = true;
+      }
+    }
+
+    // 2. Merge sessions (keep higher xp / review_count per date)
+    if (Array.isArray(p.sessions) && p.sessions.length > 0) {
+      const localSessions = await offlineDb.sessions.bulkGet(
+        p.sessions.map((s) => s.date)
+      );
+      const toPut: SessionRecord[] = [];
+      p.sessions.forEach((remote, idx) => {
+        const local = localSessions[idx];
+        if (
+          !local ||
+          remote.xp > local.xp ||
+          remote.review_count > local.review_count ||
+          remote.new_count > local.new_count
+        ) {
+          toPut.push({
+            ...remote,
+            xp: Math.max(remote.xp, local?.xp ?? 0),
+            review_count: Math.max(remote.review_count, local?.review_count ?? 0),
+            new_count: Math.max(remote.new_count, local?.new_count ?? 0),
+            streak: Math.max(remote.streak, local?.streak ?? 0),
+          });
+        }
+      });
+      if (toPut.length > 0) {
+        await offlineDb.sessions.bulkPut(toPut);
+        changed = true;
+      }
+    }
+
+    // 3. Merge lessons, errors, texts, word_status, pron_attempts
+    if (Array.isArray(p.lessons) && p.lessons.length > 0) {
+      await offlineDb.lessons.bulkPut(p.lessons);
+    }
+    if (Array.isArray(p.errors) && p.errors.length > 0) {
+      await offlineDb.errors.bulkPut(p.errors);
+    }
+    if (Array.isArray(p.texts) && p.texts.length > 0) {
+      await offlineDb.texts.bulkPut(p.texts);
+    }
+    if (Array.isArray(p.word_status) && p.word_status.length > 0) {
+      await offlineDb.word_status.bulkPut(p.word_status);
+    }
+    if (Array.isArray(p.pron_attempts) && p.pron_attempts.length > 0) {
+      await offlineDb.pron_attempts.bulkPut(p.pron_attempts);
+    }
+
+    return changed;
+  } catch {
+    return false;
+  }
+}
