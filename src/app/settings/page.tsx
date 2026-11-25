@@ -196,9 +196,17 @@ export default function SettingsPage() {
       const stats = await pullAllCloudDataChunked((label) =>
         setBackupNotice({ kind: "ok", text: label })
       );
+      window.dispatchEvent(new Event("spanishx:cloud-synced"));
+      const learnedCount = offlineDb
+        ? new Set(
+            (await offlineDb.cards.toArray())
+              .filter((c) => c.reps > 0)
+              .map((c) => c.note_id)
+          ).size
+        : 0;
       setBackupNotice({
         kind: "ok",
-        text: `Pulled ${stats.notes.toLocaleString()} words, ${stats.cards.toLocaleString()} cards & ${stats.sessions} days from cloud!`,
+        text: `Pulled ${stats.notes.toLocaleString()} words (${learnedCount} learned), ${stats.cards.toLocaleString()} cards & ${stats.sessions} days from cloud!`,
       });
     } catch (err) {
       setBackupNotice({

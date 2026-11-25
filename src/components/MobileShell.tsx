@@ -102,14 +102,22 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
       const lastFastPull = Number(
         window.sessionStorage.getItem("spanishx_fast_pull_ts") ?? "0"
       );
-      if (Date.now() - lastFastPull < 45_000) return;
+      if (Date.now() - lastFastPull < 15_000) return;
       window.sessionStorage.setItem("spanishx_fast_pull_ts", String(Date.now()));
       const updated = await syncProgressFromCloudFast();
       if (updated) {
         void refreshStatus();
+        window.dispatchEvent(new Event("spanishx:cloud-synced"));
       }
     };
     void autoSyncCloud();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void autoSyncCloud();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
 
     const handleOnline = () => {
       setIsOnline(true);
@@ -126,6 +134,7 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      document.removeEventListener("visibilitychange", handleVisibility);
       clearInterval(interval);
     };
   }, [pathname]);

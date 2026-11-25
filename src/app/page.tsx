@@ -172,6 +172,10 @@ export default function HomePage() {
 
   useEffect(() => {
     void loadDashboard();
+    const onCloudSynced = () => void loadDashboard();
+    window.addEventListener("spanishx:cloud-synced", onCloudSynced);
+    return () =>
+      window.removeEventListener("spanishx:cloud-synced", onCloudSynced);
   }, [loadDashboard]);
 
   const [unlockAllEarly, setUnlockAllEarly] = useState<boolean>(() => {

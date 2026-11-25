@@ -163,6 +163,10 @@ export default function TodayLoopPage() {
 
   useEffect(() => {
     void loadTodayData();
+    const onCloudSynced = () => void loadTodayData();
+    window.addEventListener("spanishx:cloud-synced", onCloudSynced);
+    return () =>
+      window.removeEventListener("spanishx:cloud-synced", onCloudSynced);
   }, [loadTodayData]);
 
   useEffect(() => {
