@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { callGeminiFlashJson } from "@/lib/ai/gemini";
 import { parseAiChatPayloadJson } from "@/lib/ai/json-parser";
 
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as {
@@ -75,12 +77,13 @@ Return JSON: {"reply":"...","corrections":[]}`;
       return NextResponse.json(parsed);
     } catch (aiErr) {
       console.warn("[api/tutor/chat] AI unavailable:", aiErr);
+      const message =
+        aiErr instanceof Error && aiErr.message
+          ? aiErr.message
+          : "Gemini API is temporarily busy (high demand 503). Tap Retry in a moment.";
       return NextResponse.json(
-        {
-          error:
-            "Gemini API is temporarily busy (high demand 503). Tap Retry in a moment.",
-        },
-        { status: 503 }
+        { error: message },
+        { status: message.includes("GEMINI_API_KEY") ? 500 : 503 }
       );
     }
   } catch (err) {
