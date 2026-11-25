@@ -1,10 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
-export function isServerSupabaseConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+function resolveSupabaseEnv(): { url: string | undefined; key: string | undefined } {
+  const url =
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  return { url, key };
+}
+
+export function isServerSupabaseConfigured(): boolean {
+  const { url, key } = resolveSupabaseEnv();
   return Boolean(
     url &&
       key &&
@@ -15,12 +23,9 @@ export function isServerSupabaseConfigured(): boolean {
 
 export function getSupabaseServerAdminClient() {
   if (!isServerSupabaseConfigured()) return null;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const { url, key } = resolveSupabaseEnv();
 
-  return createClient(url, key, {
+  return createClient(url!, key!, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
