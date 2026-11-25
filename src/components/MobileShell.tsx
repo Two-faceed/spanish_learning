@@ -144,7 +144,7 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0D0E11] text-white selection:bg-[#FF4F17] selection:text-black">
+    <div className="min-h-screen w-full overflow-x-clip flex flex-col bg-[#0D0E11] text-white selection:bg-[#FF4F17] selection:text-black">
       {/* Ambient top glow */}
       <div
         className={`pointer-events-none fixed inset-x-0 top-0 h-72 z-0 transition-all duration-300 ${
@@ -216,7 +216,7 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main content container (375px+ mobile-first) */}
-      <main className="relative z-10 flex-1 w-full max-w-md mx-auto px-4 pt-4 pb-28">
+      <main className="relative z-10 flex-1 w-full max-w-md mx-auto px-4 pt-4 pb-32">
         {children}
       </main>
 
@@ -227,7 +227,10 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
       <MadridChatWidget />
 
       {/* Clean 6-Tab Floating Pill Dock (Today · Review · Tutor · Speak · Read · More) */}
-      <nav className="fixed bottom-4 inset-x-4 z-30 pointer-events-none">
+      <nav
+        style={{ bottom: "max(12px, env(safe-area-inset-bottom))" }}
+        className="fixed inset-x-3 z-40 pointer-events-none"
+      >
         <div className="max-w-md mx-auto pointer-events-auto rounded-full bg-[#16181D]/95 backdrop-blur-2xl border border-white/[0.08] shadow-[0_16px_40px_rgba(0,0,0,0.65)] px-1.5 py-1.5 grid grid-cols-6">
           {navItems.map((item) => {
             const Icon = item.icon;

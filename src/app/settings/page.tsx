@@ -546,26 +546,26 @@ export default function SettingsPage() {
           <label className="block text-xs font-bold text-white">
             Spain Spanish (<code className="font-mono">es-ES</code>) Neural TTS Voice
           </label>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 w-full">
             <select
               value={settings.voice}
               onChange={(e) => {
                 setSettings({ ...settings, voice: e.target.value });
                 setPreferredTtsVoice(e.target.value);
               }}
-              className="flex-1 rounded-2xl border border-white/10 bg-[#121418] text-white px-3.5 py-2.5 text-xs font-bold"
+              className="min-w-0 flex-1 h-11 rounded-2xl border border-white/10 bg-[#121418] text-white px-3 text-xs font-bold truncate"
             >
               <option value="es-ES-AlvaroNeural">
-                es-ES-AlvaroNeural (Madrid Male · Warm)
+                Alvaro (Madrid Male · Warm)
               </option>
               <option value="es-ES-ElviraNeural">
-                es-ES-ElviraNeural (Madrid Female · Crisp)
+                Elvira (Madrid Female · Crisp)
               </option>
               <option value="es-ES-ArnauNeural">
-                es-ES-ArnauNeural (Spain Male · Deep)
+                Arnau (Spain Male · Deep)
               </option>
               <option value="es-ES-EstrellaNeural">
-                es-ES-EstrellaNeural (Spain Female · Expressive)
+                Estrella (Spain Female · Expressive)
               </option>
             </select>
             <button
@@ -578,10 +578,11 @@ export default function SettingsPage() {
                   engine: ttsEngine,
                 })
               }
-              className="px-4 py-2.5 rounded-2xl bg-[#22252C] hover:bg-[#FF4F17] text-[#FF4F17] hover:text-black border border-white/10 text-xs font-extrabold inline-flex items-center gap-1.5 transition"
+              title="Preview voice"
+              aria-label="Preview voice"
+              className="shrink-0 w-11 h-11 rounded-2xl bg-[#22252C] hover:bg-[#FF4F17] text-[#FF4F17] hover:text-black border border-white/10 flex items-center justify-center transition"
             >
               <Volume2 className="w-4 h-4" />
-              <span>Test</span>
             </button>
           </div>
         </div>
