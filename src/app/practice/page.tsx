@@ -32,8 +32,6 @@ import {
 
 type PracticeTab = "dictation" | "verbs" | "journal";
 
-const SPANISH_CHARS = ["á", "é", "í", "ó", "ú", "ü", "ñ", "¿", "¡"];
-
 export default function PracticeLabPage() {
   const [activeTab, setActiveTab] = useState<PracticeTab>("dictation");
   const [xpToast, setXpToast] = useState<string | null>(null);
@@ -321,20 +319,6 @@ export default function PracticeLabPage() {
               className="w-full rounded-2xl bg-[#101216] border border-white/10 px-3.5 py-2.5 text-sm font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF4F17]"
             />
 
-            <div className="grid grid-cols-9 gap-1">
-              {SPANISH_CHARS.map((ch) => (
-                <button
-                  key={ch}
-                  type="button"
-                  disabled={Boolean(dictResult)}
-                  onClick={() => setDictInput((p) => p + ch)}
-                  className="h-7 rounded-lg bg-[#121419] hover:bg-[#FF4F17] text-zinc-300 hover:text-black font-bold text-xs border border-white/[0.06]"
-                >
-                  {ch}
-                </button>
-              ))}
-            </div>
-
             {!dictResult ? (
               <button
                 type="submit"
@@ -469,20 +453,6 @@ export default function PracticeLabPage() {
               className="w-full rounded-2xl bg-[#101216] border border-white/10 px-4 py-3 text-center text-base font-extrabold text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF4F17]"
             />
 
-            <div className="grid grid-cols-7 gap-1">
-              {["á", "é", "í", "ó", "ú", "ñ", "ü"].map((ch) => (
-                <button
-                  key={ch}
-                  type="button"
-                  disabled={Boolean(verbChecked)}
-                  onClick={() => setVerbInput((p) => p + ch)}
-                  className="h-8 rounded-lg bg-[#121419] hover:bg-[#FF4F17] text-zinc-200 hover:text-black font-bold text-xs border border-white/[0.06]"
-                >
-                  {ch}
-                </button>
-              ))}
-            </div>
-
             {!verbChecked ? (
               <button
                 type="submit"
@@ -575,19 +545,6 @@ export default function PracticeLabPage() {
               placeholder="Write 5–8 sentences in Spain Spanish…"
               className="w-full rounded-2xl bg-[#101216] border border-white/10 px-3.5 py-2.5 text-sm font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF4F17]"
             />
-
-            <div className="grid grid-cols-9 gap-1">
-              {SPANISH_CHARS.map((ch) => (
-                <button
-                  key={ch}
-                  type="button"
-                  onClick={() => setJournalText((p) => p + ch)}
-                  className="h-7 rounded-lg bg-[#121419] hover:bg-[#FF4F17] text-zinc-300 hover:text-black font-bold text-xs border border-white/[0.06]"
-                >
-                  {ch}
-                </button>
-              ))}
-            </div>
 
             {journalError && (
               <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 px-3 py-2 text-xs text-rose-300">

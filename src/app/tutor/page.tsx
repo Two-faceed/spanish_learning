@@ -29,8 +29,6 @@ import { AiGradePayloadOutput } from "@/lib/ai/json-parser";
 
 type TutorTab = "lesson" | "errors";
 
-const SPANISH_CHARS = ["á", "é", "í", "ó", "ú", "ü", "ñ", "¿", "¡"];
-
 export default function TutorPage() {
   const [activeTab, setActiveTab] = useState<TutorTab>("lesson");
 
@@ -732,21 +730,6 @@ export default function TutorPage() {
                         placeholder="Write your Spain Spanish answer..."
                         className="w-full rounded-2xl bg-[#131519] border border-white/10 px-3.5 py-3 text-sm font-semibold text-white placeholder-[#8E93A4]/60 focus:outline-none focus:border-[#FF4F17]"
                       />
-
-                      {/* Spanish Accent Character Bar */}
-                      <div className="flex items-center justify-between gap-1">
-                        {SPANISH_CHARS.map((ch) => (
-                          <button
-                            key={ch}
-                            type="button"
-                            disabled={Boolean(gradeResult)}
-                            onClick={() => handleAppendChar(ch)}
-                            className="flex-1 rounded-lg bg-[#22252D] py-1.5 text-xs font-bold text-white hover:bg-[#FF4F17]/20 border border-white/[0.05]"
-                          >
-                            {ch}
-                          </button>
-                        ))}
-                      </div>
 
                       {!gradeResult ? (
                         <button

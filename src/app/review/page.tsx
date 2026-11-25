@@ -940,18 +940,6 @@ export default function ReviewPage() {
                     placeholder="Type Spanish word (or tap Reveal)..."
                     className="w-full rounded-2xl bg-[#101216] border border-white/10 text-white px-4 py-2.5 text-sm text-center focus:outline-none focus:border-[#FF4F17]"
                   />
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {["á", "é", "í", "ó", "ú", "ñ", "ü"].map((ch) => (
-                      <button
-                        key={ch}
-                        type="button"
-                        onClick={() => setTypedAnswer((prev) => prev + ch)}
-                        className="w-8 h-8 rounded-xl bg-[#22252C] hover:bg-[#2B2F38] text-white font-bold text-xs border border-white/[0.06]"
-                      >
-                        {ch}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
             </>

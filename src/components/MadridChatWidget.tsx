@@ -38,8 +38,6 @@ export function openMadridChatWidget(initialPrompt?: string): void {
   );
 }
 
-const SPANISH_CHARS = ["á", "é", "í", "ó", "ú", "ü", "ñ", "¿", "¡"];
-
 const DEFAULT_WELCOME_MESSAGE: TutorChatMessage = {
   id: "welcome-msg",
   role: "tutor",
@@ -382,32 +380,35 @@ export function MadridChatWidget() {
         </div>
       )}
 
-      {/* Floating AI Agent Chat Window / Module (Anchored at the bottom) */}
+      {/* Floating AI Agent Chat Window / Module (Above bottom dock on mobile) */}
       {isOpen && (
         <div
-          data-word-clickable-zone="true"
-          className="fixed bottom-4 inset-x-3 sm:left-auto sm:right-5 sm:w-[390px] z-40 max-w-md mx-auto rounded-[26px] bg-[#14161B]/98 backdrop-blur-2xl border border-white/[0.12] shadow-[0_24px_60px_rgba(0,0,0,0.88)] flex flex-col overflow-hidden h-[510px] max-h-[calc(100vh-32px)] animate-in fade-in slide-in-from-bottom-4 duration-200"
+          onClick={() => setIsOpen(false)}
+          style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:justify-end p-3"
         >
-          {/* Clean Uncluttered Module Header */}
-          <div className="px-4 py-3 bg-[#181A20] border-b border-white/[0.07] flex items-center justify-between gap-2 shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-[#FF4F17] text-black font-extrabold text-xs flex items-center justify-center shrink-0 shadow-[0_0_16px_rgba(255,79,23,0.35)]">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-display font-extrabold text-sm text-white tracking-tight truncate">
-                    Madrid AI Tutor
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#FF4F17]/15 text-[#FF4F17] text-[9px] font-extrabold uppercase shrink-0">
-                    es-ES
-                  </span>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            data-word-clickable-zone="true"
+            className="w-full max-w-md sm:w-[390px] mx-auto sm:mx-0 rounded-[26px] bg-[#14161B]/98 backdrop-blur-2xl border border-white/[0.12] shadow-[0_24px_60px_rgba(0,0,0,0.88)] flex flex-col overflow-hidden h-[78dvh] max-h-[540px] animate-in fade-in slide-in-from-bottom-4 duration-200"
+          >
+            {/* Clean Uncluttered Module Header */}
+            <div className="px-4 py-3 bg-[#181A20] border-b border-white/[0.07] flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-[#FF4F17] text-black font-extrabold text-xs flex items-center justify-center shrink-0 shadow-[0_0_16px_rgba(255,79,23,0.35)]">
+                  <Sparkles className="w-4 h-4" />
                 </div>
-                <div className="text-[11px] text-zinc-400 truncate">
-                  Tap any word for translation & audio
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-display font-extrabold text-sm text-white tracking-tight truncate">
+                      Madrid AI Tutor
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-zinc-400 truncate">
+                    Tap any word for translation &amp; audio
+                  </div>
                 </div>
               </div>
-            </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
               <button
@@ -579,27 +580,14 @@ export function MadridChatWidget() {
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Bottom Composer: Evenly spaced 9-column Spanish accent bar + Input */}
+          {/* Bottom Composer */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void handleSendChat();
             }}
-            className="p-3 bg-[#181A20] border-t border-white/[0.07] space-y-2 shrink-0"
+            className="p-3 bg-[#181A20] border-t border-white/[0.07] shrink-0"
           >
-            <div className="grid grid-cols-9 gap-1">
-              {SPANISH_CHARS.map((ch) => (
-                <button
-                  key={ch}
-                  type="button"
-                  onClick={() => setChatInput((prev) => prev + ch)}
-                  className="h-7 rounded-lg bg-[#111318] hover:bg-[#FF4F17] text-zinc-300 hover:text-black font-bold text-xs flex items-center justify-center border border-white/[0.07] transition"
-                >
-                  {ch}
-                </button>
-              ))}
-            </div>
-
             <div className="flex gap-2">
               <input
                 ref={inputRef}
@@ -607,7 +595,7 @@ export function MadridChatWidget() {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Ask anything or write in Spanish…"
-                className="flex-1 rounded-xl bg-[#111318] border border-white/[0.1] px-3.5 py-2.5 text-xs font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF4F17]"
+                className="min-w-0 flex-1 rounded-xl bg-[#111318] border border-white/[0.1] px-3.5 py-2.5 text-sm font-semibold text-white placeholder-zinc-500 focus:outline-none focus:border-[#FF4F17]"
               />
               <button
                 type="submit"
@@ -619,6 +607,7 @@ export function MadridChatWidget() {
               </button>
             </div>
           </form>
+          </div>
         </div>
       )}
     </>
