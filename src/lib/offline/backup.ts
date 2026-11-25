@@ -143,6 +143,31 @@ async function bulkPutChunked<T>(
   }
 }
 
+async function bulkPutNotesSafe(incoming: NoteRecord[] | undefined) {
+  if (!offlineDb || !Array.isArray(incoming) || incoming.length === 0) return;
+  // Dexie has a unique index `&anki_guid` on `notes`. If a device already has a note
+  // with the same `anki_guid` under a different `id`, `bulkPut` throws ConstraintError.
+  // Resolve conflicts cleanly by deleting stale duplicate `anki_guid` rows first.
+  const existing = await offlineDb.notes.toArray();
+  const existingByGuid = new Map<string, string>();
+  for (const n of existing) {
+    if (n.anki_guid) existingByGuid.set(n.anki_guid, n.id);
+  }
+
+  const idsToRemove: string[] = [];
+  for (const n of incoming) {
+    const oldId = existingByGuid.get(n.anki_guid);
+    if (oldId && oldId !== n.id) {
+      idsToRemove.push(oldId);
+    }
+  }
+  if (idsToRemove.length > 0) {
+    await offlineDb.notes.bulkDelete(idsToRemove);
+  }
+
+  await bulkPutChunked(offlineDb.notes, incoming);
+}
+
 export async function restoreAllLocalData(
   payload: FullBackupPayload
 ): Promise<{
@@ -160,7 +185,7 @@ export async function restoreAllLocalData(
   }
 
   const t = payload.tables;
-  await bulkPutChunked(offlineDb.notes, t.notes);
+  await bulkPutNotesSafe(t.notes);
   await bulkPutChunked(offlineDb.cards, t.cards);
   await bulkPutChunked(offlineDb.review_logs, t.review_logs);
   await bulkPutChunked(offlineDb.sessions, t.sessions);
@@ -374,84 +399,119 @@ export async function syncProgressFromCloudFast(): Promise<boolean> {
     let changed = false;
     const p = data.progress;
 
-    // 0. Merge non-deck mined/tutor notes
-    if (Array.isArray(p.notes) && p.notes.length > 0) {
-      await offlineDb.notes.bulkPut(p.notes);
-    }
-
-    // 1. Merge reviewed cards (keep whichever has more reps or newer last_review)
+    // 1. Merge reviewed cards FIRST (keep whichever has more reps or newer last_review)
     if (Array.isArray(p.cards) && p.cards.length > 0) {
-      const localCards = await offlineDb.cards.bulkGet(p.cards.map((c) => c.id));
-      const toPut: CardRecord[] = [];
-      p.cards.forEach((remote, idx) => {
-        const local = localCards[idx];
-        const remoteTime = remote.last_review
-          ? new Date(remote.last_review).getTime()
-          : 0;
-        const localTime = local?.last_review
-          ? new Date(local.last_review).getTime()
-          : 0;
-        if (
-          !local ||
-          remote.reps > local.reps ||
-          (remote.reps === local.reps && remoteTime > localTime)
-        ) {
-          toPut.push(remote);
+      try {
+        const localCards = await offlineDb.cards.bulkGet(
+          p.cards.map((c) => c.id)
+        );
+        const toPut: CardRecord[] = [];
+        p.cards.forEach((remote, idx) => {
+          const local = localCards[idx];
+          const remoteTime = remote.last_review
+            ? new Date(remote.last_review).getTime()
+            : 0;
+          const localTime = local?.last_review
+            ? new Date(local.last_review).getTime()
+            : 0;
+          if (
+            !local ||
+            remote.reps > local.reps ||
+            (remote.reps === local.reps && remoteTime > localTime)
+          ) {
+            toPut.push(remote);
+          }
+        });
+        if (toPut.length > 0) {
+          await offlineDb.cards.bulkPut(toPut);
+          changed = true;
         }
-      });
-      if (toPut.length > 0) {
-        await offlineDb.cards.bulkPut(toPut);
-        changed = true;
+      } catch (e) {
+        console.warn("[sync] cards merge warning:", e);
       }
     }
 
     // 2. Merge sessions (keep higher xp / review_count per date)
     if (Array.isArray(p.sessions) && p.sessions.length > 0) {
-      const localSessions = await offlineDb.sessions.bulkGet(
-        p.sessions.map((s) => s.date)
-      );
-      const toPut: SessionRecord[] = [];
-      p.sessions.forEach((remote, idx) => {
-        const local = localSessions[idx];
-        if (
-          !local ||
-          remote.xp > local.xp ||
-          remote.review_count > local.review_count ||
-          remote.new_count > local.new_count
-        ) {
-          toPut.push({
-            ...remote,
-            xp: Math.max(remote.xp, local?.xp ?? 0),
-            review_count: Math.max(remote.review_count, local?.review_count ?? 0),
-            new_count: Math.max(remote.new_count, local?.new_count ?? 0),
-            streak: Math.max(remote.streak, local?.streak ?? 0),
-          });
+      try {
+        const localSessions = await offlineDb.sessions.bulkGet(
+          p.sessions.map((s) => s.date)
+        );
+        const toPut: SessionRecord[] = [];
+        p.sessions.forEach((remote, idx) => {
+          const local = localSessions[idx];
+          if (
+            !local ||
+            remote.xp > local.xp ||
+            remote.review_count > local.review_count ||
+            remote.new_count > local.new_count
+          ) {
+            toPut.push({
+              ...remote,
+              xp: Math.max(remote.xp, local?.xp ?? 0),
+              review_count: Math.max(
+                remote.review_count,
+                local?.review_count ?? 0
+              ),
+              new_count: Math.max(remote.new_count, local?.new_count ?? 0),
+              streak: Math.max(remote.streak, local?.streak ?? 0),
+            });
+          }
+        });
+        if (toPut.length > 0) {
+          await offlineDb.sessions.bulkPut(toPut);
+          changed = true;
         }
-      });
-      if (toPut.length > 0) {
-        await offlineDb.sessions.bulkPut(toPut);
-        changed = true;
+      } catch (e) {
+        console.warn("[sync] sessions merge warning:", e);
       }
     }
 
-    // 3. Merge lessons, errors, texts, word_status, pron_attempts
+    // 3. Safely merge non-deck mined/tutor notes (deduping &anki_guid)
+    if (Array.isArray(p.notes) && p.notes.length > 0) {
+      try {
+        await bulkPutNotesSafe(p.notes);
+      } catch (e) {
+        console.warn("[sync] notes merge warning:", e);
+      }
+    }
+
+    // 4. Merge lessons, errors, texts, word_status, pron_attempts, settings independently
+    const safePut = async <T,>(
+      fn: () => Promise<T>,
+      label: string
+    ) => {
+      try {
+        await fn();
+      } catch (e) {
+        console.warn(`[sync] ${label} merge warning:`, e);
+      }
+    };
+
     if (Array.isArray(p.lessons) && p.lessons.length > 0) {
-      await offlineDb.lessons.bulkPut(p.lessons);
+      await safePut(() => offlineDb!.lessons.bulkPut(p.lessons!), "lessons");
+      changed = true;
     }
     if (Array.isArray(p.errors) && p.errors.length > 0) {
-      await offlineDb.errors.bulkPut(p.errors);
+      await safePut(() => offlineDb!.errors.bulkPut(p.errors!), "errors");
     }
     if (Array.isArray(p.texts) && p.texts.length > 0) {
-      await offlineDb.texts.bulkPut(p.texts);
+      await safePut(() => offlineDb!.texts.bulkPut(p.texts!), "texts");
     }
     if (Array.isArray(p.word_status) && p.word_status.length > 0) {
-      await offlineDb.word_status.bulkPut(p.word_status);
+      await safePut(
+        () => offlineDb!.word_status.bulkPut(p.word_status!),
+        "word_status"
+      );
     }
     if (Array.isArray(p.pron_attempts) && p.pron_attempts.length > 0) {
-      await offlineDb.pron_attempts.bulkPut(p.pron_attempts);
+      await safePut(
+        () => offlineDb!.pron_attempts.bulkPut(p.pron_attempts!),
+        "pron_attempts"
+      );
     }
     if (Array.isArray(p.settings) && p.settings.length > 0) {
-      await offlineDb.settings.bulkPut(p.settings);
+      await safePut(() => offlineDb!.settings.bulkPut(p.settings!), "settings");
     }
 
     return changed;
