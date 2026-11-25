@@ -12,9 +12,13 @@ export interface GeminiFlashJsonRequest {
 
 const FAST_FLASH_MODELS = [
   "gemini-3.5-flash-lite",
-  "gemini-3.1-flash-lite",
   "gemini-flash-lite-latest",
+  "gemini-3.1-flash-lite",
+  "gemini-3.6-flash",
+  "gemini-3.7-flash",
+  "gemini-flash-latest",
   "gemini-3.5-flash",
+  "gemini-3.8-flash",
 ];
 
 export async function callGeminiFlashJson({
@@ -61,7 +65,7 @@ export async function callGeminiFlashJson({
           headers: {
             "Content-Type": "application/json",
           },
-          signal: AbortSignal.timeout(12000),
+          signal: AbortSignal.timeout(8000),
           body: JSON.stringify({
             systemInstruction: {
               parts: [{ text: systemPrompt }],
