@@ -781,7 +781,7 @@ export function WordSelectionPopup() {
             ? "translate(-50%, -100%)"
             : "translate(-50%, 0)",
       }}
-      className="fixed z-50 w-[308px] max-w-[calc(100vw-24px)] max-h-[calc(100vh-24px)] overflow-y-auto rounded-3xl bg-[#16181D]/98 backdrop-blur-2xl border border-[#FF4F17]/45 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_25px_rgba(255,79,23,0.22)] p-3.5 text-white animate-in fade-in zoom-in-95 duration-150"
+      className="fixed z-[70] w-[308px] max-w-[calc(100vw-24px)] max-h-[calc(100vh-24px)] overflow-y-auto rounded-3xl bg-[#16181D]/98 backdrop-blur-2xl border border-[#FF4F17]/45 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_25px_rgba(255,79,23,0.22)] p-3.5 text-white animate-in fade-in zoom-in-95 duration-150"
     >
       {/* Direction header when an English word was selected (Reverse EN -> ES lookup) */}
       {isEnToEs && (
