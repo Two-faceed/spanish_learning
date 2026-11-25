@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme="blaze"] {
+  --bg-carbon: #0d0e11;
+  --surface-1: #181a1f;
+  --surface-2: #21242b;
+  --blaze: #ff4f17;
+  --ink: #f8fafc;
+}
+
+[data-theme="violet"] {
+  --bg-carbon: #0d071b;
+  --surface-1: #1b1233;
+  --surface-2: #261947;
+  --blaze: #9d5cff;
+  --ink: #f8fafc;
+}
+
+html,
+body {
+  background-color: var(--bg-carbon);
+  color: var(--ink);
+  font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  transition: background-color 0.25s ease;
+}
+
+.font-display {
+  font-family: "Space Grotesk", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  letter-spacing: -0.03em;
+}
+
+/* ============================================================================
+   THEME 2: FUTURE VIOLET (Midnight Indigo + Electric Lavender + Neon Lime)
+   Matches reference crypto/fintech purple & neon-lime UI aesthetic
+   ============================================================================ */
+
+/* 1. App Canvas & Header Backgrounds */
+[data-theme="violet"] .bg-\[\#0D0E11\] {
+  background-color: #0d071b !important;
+}
+
+[data-theme="violet"] .bg-\[\#0D0E11\]\/85 {
+  background-color: rgba(13, 7, 27, 0.85) !important;
+}
+
+/* 2. Primary Card Surfaces (#181A1F -> #1B1233 deep violet glass) */
+[data-theme="violet"] .bg-\[\#181A1F\] {
+  background: linear-gradient(
+    165deg,
+    rgba(34, 22, 64, 0.95) 0%,
+    rgba(23, 14, 45, 0.96) 100%
+  ) !important;
+  border-color: rgba(186, 140, 255, 0.14) !important;
+}
+
+/* 3. Recessed Inner Card / Input Surfaces (#121418 -> #120B24) */
+[data-theme="violet"] .bg-\[\#121418\] {
+  background-color: #120b24 !important;
+  border-color: rgba(186, 140, 255, 0.12) !important;
+}
+
+[data-theme="violet"] .bg-\[\#22252C\] {
+  background-color: #271a4a !important;
+  border-color: rgba(186, 140, 255, 0.18) !important;
+}
+
+/* 4. Floating Nav & Popover Surfaces (#16181D -> deep plum glass) */
+[data-theme="violet"] .bg-\[\#16181D\]\/95,
+[data-theme="violet"] .bg-\[\#16181D\]\/98 {
+  background-color: rgba(24, 15, 48, 0.96) !important;
+  border-color: rgba(181, 123, 255, 0.28) !important;
+}
+
+/* 5. Primary Accent Buttons & Active Pills (#FF4F17 -> Electric Lavender-Violet Gradient) */
+[data-theme="violet"] .bg-\[\#FF4F17\] {
+  background: linear-gradient(135deg, #b87dff 0%, #8b46ff 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 26px rgba(157, 92, 255, 0.42) !important;
+}
+
+[data-theme="violet"] .hover\:bg-\[\#FF6230\]:hover,
+[data-theme="violet"] .hover\:bg-\[\#FF4F17\]:hover {
+  background: linear-gradient(135deg, #c694ff 0%, #9b5cff 100%) !important;
+  color: #ffffff !important;
+}
+
+/* 6. Tinted Accent Badges (#FF4F17/10, /15, /20 -> Lavender Glow) */
+[data-theme="violet"] .bg-\[\#FF4F17\]\/10 {
+  background-color: rgba(168, 100, 255, 0.14) !important;
+}
+
+[data-theme="violet"] .bg-\[\#FF4F17\]\/15 {
+  background-color: rgba(168, 100, 255, 0.2) !important;
+}
+
+[data-theme="violet"] .bg-\[\#FF4F17\]\/20 {
+  background-color: rgba(168, 100, 255, 0.26) !important;
+}
+
+/* 7. Accent Text (#FF4F17 -> Luminous Electric Lavender #C28EFF) */
+[data-theme="violet"] .text-\[\#FF4F17\] {
+  color: #c490ff !important;
+}
+
+[data-theme="violet"] .fill-\[\#FF4F17\] {
+  fill: #c490ff !important;
+}
+
+/* 8. Accent Borders */
+[data-theme="violet"] .border-\[\#FF4F17\],
+[data-theme="violet"] .border-\[\#FF4F17\]\/40,
+[data-theme="violet"] .border-\[\#FF4F17\]\/45,
+[data-theme="violet"] .border-\[\#FF4F17\]\/35,
+[data-theme="violet"] .border-\[\#FF4F17\]\/30,
+[data-theme="violet"] .border-\[\#FF4F17\]\/25,
+[data-theme="violet"] .border-\[\#FF4F17\]\/20 {
+  border-color: rgba(184, 125, 255, 0.42) !important;
+}
+
+/* 9. Hero Gradients (from-[#FF4F17] -> Vibrant Purple Wallet Card Gradient from screenshot) */
+[data-theme="violet"] .from-\[\#FF4F17\] {
+  --tw-gradient-from: #a864ff var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(168, 100, 255, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[data-theme="violet"] .via-\[\#E03E0A\] {
+  --tw-gradient-to: rgba(139, 70, 255, 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from),
+    #8b46ff var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+[data-theme="violet"] .to-\[\#CC3200\],
+[data-theme="violet"] .to-\[\#9E2800\] {
+  --tw-gradient-to: #5b21b6 var(--tw-gradient-to-position) !important;
+}
+
+/* 10. Positive / Emerald Pills -> Neon Lime-Mint (#C4F970) like the "+4.34%" badge in screenshot */
+[data-theme="violet"] .text-emerald-400,
+[data-theme="violet"] .text-emerald-300 {
+  color: #c4f970 !important;
+}
+
+[data-theme="violet"] .bg-emerald-500\/15,
+[data-theme="violet"] .bg-emerald-500\/20,
+[data-theme="violet"] .bg-emerald-500\/10 {
+  background-color: rgba(196, 249, 112, 0.16) !important;
+}
+
+[data-theme="violet"] .border-emerald-500\/30,
+[data-theme="violet"] .border-emerald-500\/35,
+[data-theme="violet"] .border-emerald-500\/25 {
+  border-color: rgba(196, 249, 112, 0.38) !important;
+}
+
+/* Gender colour coding per docs/SPEC.md */
+.gender-el {
+  color: #38bdf8; /* Electric sky blue for masculine (el / los) */
+}
+
+.gender-la {
+  color: #fb7185; /* Coral rose for feminine (la / las) */
+}
+
+.gender-both {
+  color: #fbbf24; /* Warm amber for common gender (el/la) */
+}
+
+/* Subtle custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+}
