@@ -133,9 +133,19 @@ export function PronunciationRecorderCard({
         }),
       });
 
-      const data = (await res.json()) as PronunciationAssessmentResult & {
-        error?: string;
-      };
+      const rawText = await res.text();
+      let data: PronunciationAssessmentResult & { error?: string };
+      try {
+        data = JSON.parse(rawText) as PronunciationAssessmentResult & {
+          error?: string;
+        };
+      } catch {
+        throw new Error(
+          res.status === 504
+            ? "Scoring timed out on server — tap Retry Scoring This Recording."
+            : `Server returned non-JSON (HTTP ${res.status}). Tap Retry in a moment.`
+        );
+      }
 
       if (!res.ok || data.error) {
         throw new Error(data.error || "Pronunciation assessment failed");

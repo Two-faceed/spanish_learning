@@ -5,6 +5,7 @@ import {
 } from "@/lib/pronunciation/spain-sounds";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
 async function assessWithAzureSpeech(
   wavBuffer: Buffer,

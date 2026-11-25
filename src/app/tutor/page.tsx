@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Volume2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, Volume2 } from "lucide-react";
 import { offlineDb } from "@/lib/offline/db";
 import {
   markLessonCompletedOfflineFirst,
@@ -59,6 +59,10 @@ export default function TutorPage() {
   const [knownLemmas, setKnownLemmas] = useState<string[]>([]);
   const [errors, setErrors] = useState<ErrorRecord[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [completedLessonScores, setCompletedLessonScores] = useState<
+    Record<string, number | null>
+  >({});
+  const [showLessonList, setShowLessonList] = useState<boolean>(true);
 
   // Error drill state
   const [drillActive, setDrillActive] = useState<boolean>(false);
@@ -90,12 +94,15 @@ export default function TutorPage() {
     setErrors(allErrors);
 
     const completedSet = new Set<string>();
+    const scoreMap: Record<string, number | null> = {};
     for (const l of allLessons) {
       if (l.completed_at) {
         completedSet.add(l.id);
+        scoreMap[l.id] = typeof l.score === "number" ? Math.round(l.score) : null;
       }
     }
     setCompletedLessonIds(completedSet);
+    setCompletedLessonScores(scoreMap);
 
     if (learnedCards.length > 0) {
       const noteIds = Array.from(new Set(learnedCards.map((c) => c.note_id)));
@@ -450,34 +457,118 @@ export default function TutorPage() {
               </select>
             </div>
 
-            {/* 7 Days Pills (Day 7 = Boss Test) */}
-            <div className="grid grid-cols-7 gap-1.5">
-              {[1, 2, 3, 4, 5, 6, 7].map((d) => {
-                const id = `w${selectedWeek}-d${d}`;
-                const isDone = completedLessonIds.has(id);
-                const isSelected = selectedDay === d;
-                const isBoss = d === 7;
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => handleSelectWeekDay(selectedWeek, d)}
-                    className={`flex flex-col items-center justify-center rounded-xl py-2 text-[11px] font-extrabold transition-all border ${
-                      isSelected
-                        ? "bg-[#FF4F17] text-black border-[#FF4F17] shadow-[0_4px_12px_rgba(255,79,23,0.3)]"
-                        : isDone
-                          ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                          : "bg-[#22252D] text-[#8E93A4] border-white/[0.05] hover:text-white"
-                    }`}
-                  >
-                    <span>{isBoss ? "★ D7" : `D${d}`}</span>
-                    <span className="text-[9px] opacity-80">
-                      {isDone ? "✓" : isBoss ? "Test" : "Lesson"}
+            {/* Week Lesson List Progress + Collapsible Toggle */}
+            {(() => {
+              const weekDoneCount = [1, 2, 3, 4, 5, 6, 7].filter((d) =>
+                completedLessonIds.has(`w${selectedWeek}-d${d}`)
+              ).length;
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-zinc-400">
+                      {weekDoneCount} / 7 lessons finished
                     </span>
-                  </button>
-                );
-              })}
-            </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowLessonList((prev) => !prev)}
+                      className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#FF4F17] hover:underline"
+                    >
+                      <span>{showLessonList ? "Hide list" : "Show all 7"}</span>
+                      {showLessonList ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="h-1.5 rounded-full bg-[#101216] overflow-hidden border border-white/[0.05]">
+                    <div
+                      className="h-full rounded-full bg-emerald-400 transition-all duration-300"
+                      style={{ width: `${Math.round((weekDoneCount / 7) * 100)}%` }}
+                    />
+                  </div>
+
+                  {showLessonList && (
+                    <div className="rounded-2xl bg-[#121419] border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
+                      {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+                        const id = `w${selectedWeek}-d${d}`;
+                        const spec = getCurriculumSpecForDay(selectedWeek, d);
+                        const isDone = completedLessonIds.has(id);
+                        const score = completedLessonScores[id];
+                        const isSelected = selectedDay === d;
+                        const isBoss = d === 7;
+
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => handleSelectWeekDay(selectedWeek, d)}
+                            className={`w-full text-left px-3 py-2.5 flex items-center justify-between gap-2.5 transition ${
+                              isSelected
+                                ? "bg-[#FF4F17]/15"
+                                : "hover:bg-white/[0.03]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span
+                                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-extrabold ${
+                                  isDone
+                                    ? "bg-emerald-500/20 text-emerald-300"
+                                    : isSelected
+                                      ? "bg-[#FF4F17] text-black"
+                                      : "bg-white/[0.06] text-zinc-400"
+                                }`}
+                              >
+                                {isDone ? (
+                                  <Check className="w-3.5 h-3.5" />
+                                ) : isBoss ? (
+                                  "★"
+                                ) : (
+                                  `D${d}`
+                                )}
+                              </span>
+
+                              <div className="min-w-0">
+                                <div
+                                  className={`text-xs font-extrabold truncate ${
+                                    isSelected
+                                      ? "text-white"
+                                      : isDone
+                                        ? "text-zinc-400 line-through"
+                                        : "text-zinc-200"
+                                  }`}
+                                >
+                                  {spec.dayTitle}
+                                </div>
+                                <div className="text-[10px] text-zinc-500">
+                                  Day {d} · {isBoss ? "Boss Test" : "Lesson"}
+                                  {isDone ? " · Completed" : ""}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isDone && typeof score === "number" ? (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[10px] font-extrabold text-emerald-300">
+                                  {score}%
+                                </span>
+                              ) : isSelected ? (
+                                <span className="px-2 py-0.5 rounded-full bg-[#FF4F17]/20 border border-[#FF4F17]/40 text-[10px] font-extrabold text-[#FF4F17]">
+                                  Open
+                                </span>
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Topic Header + Spanish-Only Mode Toggle */}
             <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.06]">
