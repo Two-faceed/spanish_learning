@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { syncPendingToServer } from "@/lib/offline/sync-manager";
 import { getOrInitTodaySession, offlineDb } from "@/lib/offline/db";
+import { FullBackupPayload, restoreAllLocalData } from "@/lib/offline/backup";
 import {
   AudioPlaybackSpeed,
   getAudioPlaybackSpeed,
@@ -72,6 +73,38 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
     };
 
     void refreshStatus();
+
+    // Auto-pull from Supabase once on a fresh device (0 local notes) if cloud sync is configured
+    const autoPullOnFreshDevice = async () => {
+      if (!offlineDb || typeof window === "undefined") return;
+      if (window.sessionStorage.getItem("spanishx_autopull_checked") === "1") {
+        return;
+      }
+      window.sessionStorage.setItem("spanishx_autopull_checked", "1");
+      const localNotesCount = await offlineDb.notes.count();
+      if (localNotesCount > 0) return;
+
+      try {
+        const res = await fetch("/api/sync");
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          backup?: FullBackupPayload;
+        };
+        if (
+          data.ok &&
+          data.backup?.tables &&
+          (data.backup.tables.notes?.length > 0 ||
+            data.backup.tables.sessions?.length > 0)
+        ) {
+          await restoreAllLocalData(data.backup);
+          window.location.reload();
+        }
+      } catch {
+        // Offline or Supabase not configured yet — stay local silently
+      }
+    };
+    void autoPullOnFreshDevice();
 
     const handleOnline = () => {
       setIsOnline(true);
